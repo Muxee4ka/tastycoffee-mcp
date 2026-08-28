@@ -145,3 +145,45 @@ describe("TastyCoffeeClient.listDiscountedProducts", () => {
     expect((result.data as { name: string }[])[0]!.name).toBe("Deep cut");
   });
 });
+
+describe("TastyCoffeeClient network retry", () => {
+  it("retries a connection failure and succeeds", async () => {
+    let calls = 0;
+    const fetchImpl: typeof fetch = async () => {
+      calls += 1;
+      if (calls === 1) {
+        throw new TypeError("fetch failed");
+      }
+      return Response.json({ data: [], meta: { current_page: 1, last_page: 1 } });
+    };
+
+    const result = await new TastyCoffeeClient(fetchImpl).listCatalog({ category: "coffee" });
+
+    expect(calls).toBe(2);
+    expect(result.data).toEqual([]);
+  });
+
+  it("gives up after the last attempt and surfaces the error", async () => {
+    let calls = 0;
+    const fetchImpl: typeof fetch = async () => {
+      calls += 1;
+      throw new TypeError("fetch failed");
+    };
+
+    await expect(new TastyCoffeeClient(fetchImpl).listCatalog({ category: "coffee" }))
+      .rejects.toThrow("fetch failed");
+    expect(calls).toBe(3);
+  });
+
+  it("does not retry an HTTP error status", async () => {
+    let calls = 0;
+    const fetchImpl: typeof fetch = async () => {
+      calls += 1;
+      return Response.json({ message: "nope" }, { status: 422 });
+    };
+
+    await expect(new TastyCoffeeClient(fetchImpl).listCatalog({ category: "coffee" }))
+      .rejects.toThrow("422 nope");
+    expect(calls).toBe(1);
+  });
+});

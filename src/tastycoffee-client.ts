@@ -189,6 +189,28 @@ export class TastyCoffeeClient {
     return this.request(new URL(path, STORAGE_BASE_URL), { method: "GET" });
   }
 
+  /**
+   * A whole-catalog crawl is a dozen sequential requests, so a single transient
+   * network blip would fail the entire tool. Retries connection-level failures
+   * only — an HTTP error status is a real answer and is left to the caller.
+   */
+  private async fetchWithRetry(url: URL, init: RequestInit, attempts = 3): Promise<Response> {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await this.fetchImpl(url, init);
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts) {
+          await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
   private async request(
     url: URL,
     options: { method: "GET" | "POST"; query?: Record<string, unknown>; body?: unknown },
@@ -199,7 +221,7 @@ export class TastyCoffeeClient {
       }
     }
 
-    const response = await this.fetchImpl(url, {
+    const response = await this.fetchWithRetry(url, {
       method: options.method,
       headers: {
         "accept": "application/json,text/plain,*/*",
