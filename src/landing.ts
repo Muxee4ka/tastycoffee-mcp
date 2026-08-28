@@ -1,3 +1,4 @@
+import { CATALOG_FACETS, COLLECTIONS, FACET_NAMES } from "./filters.js";
 import { SERVER_NAME, SERVER_VERSION } from "./server.js";
 import { describeToolParameters, TOOL_SPECS, type ToolSpec } from "./tools.js";
 
@@ -7,7 +8,53 @@ export const SAMPLE_PROMPT = [
   "Для теста подбери три зерна для эспрессо-машины с рейтингом не ниже 4.9 — два под молочные напитки и одно под чёрный кофе, помол в зёрнах, упаковка 250 г. Пришли мне ссылку на корзину.",
 ].join("\n");
 
-function escapeHtml(value: string): string {
+/** Prompts that show off the facets rather than just proving the server answers. */
+export const EXAMPLE_PROMPTS: { title: string; prompt: string }[] = [
+  {
+    title: "Новинки в корзину",
+    prompt:
+      "Покажи новинки Tasty Coffee для эспрессо-машины. Выбери три с самым высоким рейтингом, "
+      + "помол в зёрнах, упаковка 250 г, и собери из них корзину — пришли ссылку.",
+  },
+  {
+    title: "Что сейчас со скидкой",
+    prompt:
+      "Какой кофе сейчас продаётся со скидкой? Покажи всё дешевле 900 ₽ с рейтингом от 4.5, "
+      + "с указанием старой и новой цены.",
+  },
+  {
+    title: "Ягодная Эфиопия",
+    prompt:
+      "Хочу кофе с фруктово-ягодным вкусом, натуральной обработки, из Эфиопии, светлой обжарки "
+      + "и для фильтра. Расскажи, чем эти лоты отличаются друг от друга.",
+  },
+  {
+    title: "Под молочные напитки",
+    prompt:
+      "Подбери кофе под капучино: тёмная обжарка, вкус шоколад/орехи, низкая кислотность, "
+      + "высокая плотность. Собери корзину из трёх пачек по 250 г и пришли ссылку.",
+  },
+  {
+    title: "Без кофеина",
+    prompt:
+      "Есть ли у вас кофе без кофеина? Покажи варианты, сравни по цене и рейтингу "
+      + "и расскажи, что пишут в отзывах.",
+  },
+  {
+    title: "Редкое и необычное",
+    prompt:
+      "Что интересного есть из Limited edition и микролотов? Расскажи про вкус каждого, "
+      + "потом собери корзину из двух самых высокорейтинговых.",
+  },
+  {
+    title: "Гид по вкусу",
+    prompt:
+      "Я люблю кислотный светлый кофе с цитрусовыми нотами, варю в пуровере. "
+      + "Предложи три варианта из разных стран, объясни разницу и собери корзину.",
+  },
+];
+
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -44,6 +91,49 @@ function renderParameters(spec: ToolSpec<any>): string {
     .join("");
 
   return `<ul class="tool__params">${items}</ul>`;
+}
+
+function renderExamples(): string {
+  return EXAMPLE_PROMPTS
+    .map((example, index) => {
+      const id = `example-${index}`;
+      return [
+        '<article class="example">',
+        `<div class="example__title">${escapeHtml(example.title)}</div>`,
+        `<div class="example__text" id="${id}">${escapeHtml(example.prompt)}</div>`,
+        `<button type="button" class="copy" data-copy-target="${id}">Скопировать</button>`,
+        "</article>",
+      ].join("");
+    })
+    .join("");
+}
+
+function renderFacets(): string {
+  const groups = FACET_NAMES.map((name) => {
+    const facet = CATALOG_FACETS[name];
+    const chips = Object.keys(facet.values)
+      .map((value) => `<span class="chip">${escapeHtml(value)}</span>`)
+      .join("");
+    return [
+      '<div class="facet">',
+      `<div class="facet__label">${escapeHtml(facet.label)}<code>${escapeHtml(name)}</code></div>`,
+      `<div class="facet__chips">${chips}</div>`,
+      "</div>",
+    ].join("");
+  });
+
+  const collections = Object.keys(COLLECTIONS)
+    .map((value) => `<span class="chip">${escapeHtml(value)}</span>`)
+    .join("");
+
+  groups.push([
+    '<div class="facet">',
+    '<div class="facet__label">Подборки<code>collection</code></div>',
+    `<div class="facet__chips">${collections}</div>`,
+    "</div>",
+  ].join(""));
+
+  return `<div class="facets">${groups.join("")}</div>`;
 }
 
 function renderTool(spec: ToolSpec<any>): string {
@@ -135,6 +225,30 @@ pre.snippet {
   margin: 0 0 14px; padding: 14px 16px; overflow-x: auto;
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
   font-size: 13.5px; color: var(--code); box-shadow: var(--shadow);
+}
+
+.examples { display: grid; gap: 10px; }
+.example {
+  padding: 14px 16px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+}
+.example__title { font-weight: 600; font-size: 14px; color: var(--accent); margin-bottom: 6px; }
+.example__text { color: var(--muted); font-size: 14.5px; margin-bottom: 10px; }
+
+.facets { display: grid; gap: 12px; }
+.facet {
+  padding: 12px 16px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+}
+.facet__label {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  font-weight: 600; font-size: 14px; margin-bottom: 8px;
+}
+.facet__label code { font-weight: 400; font-size: 12.5px; color: var(--accent); }
+.facet__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 13px; padding: 3px 10px; border-radius: 999px;
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text);
 }
 
 .tools { display: grid; gap: 12px; }
@@ -233,6 +347,18 @@ export function renderLandingPage(endpointUrl: string): string {
   <p>Claude Desktop и другие клиенты с конфигом — в <code>mcpServers</code>:</p>
   <pre class="snippet">${escapeHtml(claudeConfig)}</pre>
   <p>Сервер работает по транспорту Streamable HTTP и не требует авторизации.</p>
+
+  <h2>Примеры запросов</h2>
+  <p>Что можно попросить у помощника после подключения:</p>
+  <div class="examples">
+    ${renderExamples()}
+  </div>
+
+  <h2>Фильтры каталога</h2>
+  <p>Помощник умеет фильтровать каталог по тем же признакам, что и сайдбар на сайте. Значения внутри
+  одной группы объединяются по «или», разные группы — по «и»: например «Эфиопия + натуральная обработка»
+  сузит выдачу до пересечения.</p>
+  ${renderFacets()}
 
   <h2>В настоящий момент доступны следующие тулы</h2>
   <div class="tools">

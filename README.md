@@ -9,12 +9,33 @@ Read-only catalog MCP plus anonymous cart sharing for `shop.tastycoffee.ru`.
 - `get_product`
 - `get_product_prices`
 - `get_product_reviews`
+- `list_discounts`
 - `get_catalog_filters`
 - `get_home_blocks`
 - `get_city_delivery_summary`
 - `create_cart`
 - `create_cart_share_link`
 - `recommend_cart`
+
+## Catalog facets
+
+`list_catalog` and `list_discounts` accept the shop's sidebar filters as readable
+values instead of numeric ids: `acidity`, `body`, `roast`, `flavor`, `processing`,
+`origin`, `feature`, plus `collection` for the shop's own selections (`новинки`,
+`популярное`, `сорт недели`, …). Values within one facet are OR-ed, different
+facets are AND-ed, which is what the API already does with a flat id list.
+
+The mapping lives in `src/filters.ts` and is rendered on the landing page. The
+ids are hardcoded so a model can discover them from the schema; to check them
+against the live catalog:
+
+```bash
+TASTYCOFFEE_LIVE=1 npm test
+```
+
+`bought_before` is not exposed — it needs a logged-in account and this server is
+anonymous. There is no discount facet in the API either, so `list_discounts`
+walks the catalog and compares each price against its pre-discount price.
 
 `recommend_cart` selects espresso-machine coffees by rating, separates milk-friendly and black-coffee picks, uses the requested pack size (`250 г` by default), and returns a shared basket URL.
 

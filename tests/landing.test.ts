@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { renderLandingPage } from "../src/landing.js";
+import { escapeHtml, EXAMPLE_PROMPTS, renderLandingPage } from "../src/landing.js";
+import { CATALOG_FACETS, FACET_NAMES } from "../src/filters.js";
 import { describeParameter, TOOL_SPECS } from "../src/tools.js";
 import { z } from "zod";
 
@@ -10,7 +11,7 @@ describe("landing page", () => {
   it("renders every registered tool", () => {
     for (const spec of TOOL_SPECS) {
       expect(html).toContain(spec.name);
-      expect(html).toContain(spec.description.replace(/&/g, "&amp;"));
+      expect(html).toContain(escapeHtml(spec.description));
     }
   });
 
@@ -23,6 +24,25 @@ describe("landing page", () => {
   it("marks cart tools as writing tools", () => {
     const cartSection = html.slice(html.indexOf("create_cart_share_link"));
     expect(cartSection).toContain("изменяет данные");
+  });
+
+  it("renders every example prompt with its own copy button", () => {
+    EXAMPLE_PROMPTS.forEach((example, index) => {
+      expect(html).toContain(escapeHtml(example.title));
+      expect(html).toContain(escapeHtml(example.prompt));
+      expect(html).toContain(`data-copy-target="example-${index}"`);
+    });
+  });
+
+  it("documents the catalog facets and their values", () => {
+    for (const name of FACET_NAMES) {
+      const facet = CATALOG_FACETS[name];
+      expect(html).toContain(escapeHtml(facet.label));
+      for (const value of Object.keys(facet.values)) {
+        expect(html).toContain(escapeHtml(value));
+      }
+    }
+    expect(html).toContain("новинки");
   });
 
   it("escapes html so a tool description cannot inject markup", () => {
