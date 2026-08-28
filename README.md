@@ -33,6 +33,19 @@ npm run build
 node dist/src/server.js
 ```
 
+HTTP transport:
+
+```bash
+npm run build
+PORT=3000 npm run start:http
+```
+
+The remote MCP endpoint is:
+
+```text
+http://localhost:3000/mcp
+```
+
 ## OpenClaw
 
 Local setup:
@@ -59,3 +72,10 @@ openclaw mcp probe tastycoffee
 ```
 
 This server uses MCP stdio transport, so each user runs their own local copy.
+
+Remote HTTP setup after deployment:
+
+```bash
+openclaw mcp add tastycoffee --url "https://your-domain.example/mcp" --transport streamable-http
+openclaw mcp probe tastycoffee
+```
