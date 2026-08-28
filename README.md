@@ -104,6 +104,9 @@ The tool list is rendered from `src/tools.ts`, the same registry `createServer()
 registers against the MCP SDK, so the page cannot drift from what a model sees.
 A test asserts the two stay identical.
 
+In the deployed setup nginx answers `/` with a 302 to `/mcp` so there is a single
+canonical URL, and the app's own `/` handler only matters in local development.
+
 The page shows the URL the visitor arrived on, reading `X-Forwarded-Host` and
 `X-Forwarded-Proto` when behind a reverse proxy. Set `PUBLIC_URL` to override:
 
