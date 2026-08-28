@@ -10,7 +10,9 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node dist/src/server.js"
+    "start": "node dist/src/server.js",
+    "start:stdio": "node dist/src/server.js",
+    "start:http": "node dist/src/http.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",
