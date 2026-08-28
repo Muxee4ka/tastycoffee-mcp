@@ -46,6 +46,38 @@ The remote MCP endpoint is:
 http://localhost:3000/mcp
 ```
 
+## Deploy
+
+Any Node.js hosting that supports long-lived HTTP requests can run the remote MCP server.
+
+Build command:
+
+```bash
+npm install && npm run build
+```
+
+Start command:
+
+```bash
+npm run start:http
+```
+
+The server reads `PORT` from the environment and exposes:
+
+```text
+GET /healthz
+POST /mcp
+GET /mcp
+DELETE /mcp
+```
+
+Docker:
+
+```bash
+docker build -t tastycoffee-mcp .
+docker run --rm -p 3000:3000 tastycoffee-mcp
+```
+
 ## OpenClaw
 
 Local setup:
