@@ -32,3 +32,30 @@ npm run build
 npm run build
 node dist/src/server.js
 ```
+
+## OpenClaw
+
+Local setup:
+
+```bash
+git clone https://github.com/Muxee4ka/tastycoffee-mcp.git
+cd tastycoffee-mcp
+npm install
+npm run build
+openclaw mcp add tastycoffee --command node --arg "$PWD/dist/src/server.js" --cwd "$PWD"
+openclaw mcp probe tastycoffee
+```
+
+On Windows PowerShell:
+
+```powershell
+git clone https://github.com/Muxee4ka/tastycoffee-mcp.git
+cd tastycoffee-mcp
+npm install
+npm run build
+$serverPath = Join-Path (Get-Location) "dist\src\server.js"
+openclaw mcp add tastycoffee --command node --arg "$serverPath" --cwd "$PWD"
+openclaw mcp probe tastycoffee
+```
+
+This server uses MCP stdio transport, so each user runs their own local copy.
