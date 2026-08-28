@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
+import { renderLandingPage } from "./landing.js";
 import { createServer as createMcpServer } from "./server.js";
 
 export type HttpServerOptions = {
@@ -21,6 +22,46 @@ function sendJson(res: ServerResponse, statusCode: number, body: unknown): void 
     "content-type": "application/json; charset=utf-8",
   });
   res.end(JSON.stringify(body));
+}
+
+function sendHtml(res: ServerResponse, statusCode: number, body: string): void {
+  res.writeHead(statusCode, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "public, max-age=300",
+  });
+  res.end(body);
+}
+
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw ? raw.split(",")[0]!.trim() : undefined;
+}
+
+/**
+ * Public URL of the MCP endpoint as the visitor reached it, so the page shows a
+ * link that actually works from behind a reverse proxy.
+ */
+export function resolveEndpointUrl(req: IncomingMessage, path: string): string {
+  if (process.env.PUBLIC_URL) {
+    return new URL(path, process.env.PUBLIC_URL).href;
+  }
+  const host = firstHeader(req.headers["x-forwarded-host"]) ?? req.headers.host ?? "localhost";
+  const proto = firstHeader(req.headers["x-forwarded-proto"])
+    ?? ((req.socket as { encrypted?: boolean }).encrypted ? "https" : "http");
+  return new URL(path, `${proto}://${host}`).href;
+}
+
+/**
+ * A streamable-HTTP client always asks for text/event-stream on GET, so anything
+ * else on a GET is a human in a browser (or curl) and gets the landing page
+ * instead of a 406 from the MCP transport.
+ */
+export function wantsLandingPage(req: IncomingMessage): boolean {
+  if (req.method !== "GET") {
+    return false;
+  }
+  const accept = (req.headers.accept ?? "").toLowerCase();
+  return !accept.includes("text/event-stream");
 }
 
 async function handleMcpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -50,8 +91,18 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
       return;
     }
 
+    if (url.pathname === "/" && req.method === "GET") {
+      sendHtml(res, 200, renderLandingPage(resolveEndpointUrl(req, path)));
+      return;
+    }
+
     if (url.pathname !== path) {
       sendJson(res, 404, { error: "not_found" });
+      return;
+    }
+
+    if (wantsLandingPage(req)) {
+      sendHtml(res, 200, renderLandingPage(resolveEndpointUrl(req, path)));
       return;
     }
 

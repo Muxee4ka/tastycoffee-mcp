@@ -65,10 +65,29 @@ npm run start:http
 The server reads `PORT` from the environment and exposes:
 
 ```text
-GET /healthz
-POST /mcp
-GET /mcp
-DELETE /mcp
+GET  /            landing page (HTML)
+GET  /healthz     health check (JSON)
+GET  /mcp         landing page (HTML), or the MCP stream for `Accept: text/event-stream`
+POST /mcp         MCP requests
+DELETE /mcp       MCP session teardown
+```
+
+## Landing page
+
+`GET /mcp` from a browser serves a self-contained HTML page describing the server,
+the connection snippets, and every tool with its parameters. A streamable-HTTP
+client always sends `Accept: text/event-stream` on `GET`, so protocol traffic is
+unaffected — only human visitors see the page.
+
+The tool list is rendered from `src/tools.ts`, the same registry `createServer()`
+registers against the MCP SDK, so the page cannot drift from what a model sees.
+A test asserts the two stay identical.
+
+The page shows the URL the visitor arrived on, reading `X-Forwarded-Host` and
+`X-Forwarded-Proto` when behind a reverse proxy. Set `PUBLIC_URL` to override:
+
+```bash
+PUBLIC_URL=https://tastycoffee.muxee4ka.ru npm run start:http
 ```
 
 Docker:
