@@ -1,6 +1,56 @@
 import { z } from "zod";
 
+import {
+  ACIDITY,
+  BODY,
+  COLLECTIONS,
+  FEATURE,
+  FLAVOR,
+  ORIGIN,
+  PROCESSING,
+  resolveCollection,
+  resolveFilterIds,
+  ROAST,
+  type FacetSelection,
+} from "./filters.js";
 import { TastyCoffeeClient } from "./tastycoffee-client.js";
+
+/** Builds a zod enum from a facet record so the vocabulary lives in one place. */
+function enumOf(record: Record<string, unknown>) {
+  return z.enum(Object.keys(record) as [string, ...string[]]);
+}
+
+/**
+ * Facet params shared by the catalog tools. They map the shop's sidebar filters
+ * onto readable values; `resolveFilterIds` turns them into the numeric ids the
+ * API wants. `filters` stays available as a raw escape hatch.
+ */
+const FacetShape = {
+  acidity: enumOf(ACIDITY).optional().describe("Acidity (Кислотность)."),
+  body: enumOf(BODY).optional().describe("Body (Плотность)."),
+  roast: z.array(enumOf(ROAST)).optional().describe("Roast level (Степень обжарки)."),
+  flavor: z.array(enumOf(FLAVOR)).optional().describe("Flavour profile (Вкус кофе)."),
+  processing: z.array(enumOf(PROCESSING)).optional().describe("Processing method (Способ обработки)."),
+  origin: z.array(enumOf(ORIGIN)).optional().describe("Country of origin (Страна произрастания)."),
+  feature: z.array(enumOf(FEATURE)).optional().describe("Coffee feature (Особенность кофе)."),
+};
+
+const CollectionParam = enumOf(COLLECTIONS)
+  .optional()
+  .describe("Curated shop collection (подборка), e.g. новинки.");
+
+type FacetArgs = FacetSelection & { collection?: string; filters?: string; type?: number };
+
+/** Splits facet params off a tool's args and folds them into the raw catalog query. */
+function applyFacets<T extends FacetArgs>(args: T) {
+  const { acidity, body, roast, flavor, processing, origin, feature, collection, filters, type, ...rest } = args;
+  const resolved = resolveFilterIds({ acidity, body, roast, flavor, processing, origin, feature }, filters);
+  return {
+    ...rest,
+    ...(resolved ? { filters: resolved } : {}),
+    ...(collection ? { type: resolveCollection(collection) } : type === undefined ? {} : { type }),
+  };
+}
 
 const CartItemSchema = z.object({
   productId: z.number().int().positive(),
@@ -46,21 +96,27 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   defineTool({
     name: "list_catalog",
     title: "List catalog",
-    description: "List Tasty Coffee catalog products with optional filters.",
+    description:
+      "List Tasty Coffee catalog products, filtered by the shop's sidebar facets. "
+      + "Values from one facet are OR-ed, different facets are AND-ed. "
+      + "Use `collection` for the shop's own selections (новинки, популярное, сорт недели). "
+      + "Sorting: sort=price|rating|rating_q with order=asc|desc; there is no sort by date.",
     inputSchema: {
       category: z.string().default("coffee"),
       q: z.string().optional(),
-      methods: z.string().optional(),
+      methods: z.string().optional().describe("Brewing method: 1b espresso, 3b filter, 5a capsules, 6a drip bags."),
       categories: z.string().optional(),
-      filters: z.string().optional(),
-      type: z.number().int().optional(),
-      sort: z.string().optional(),
-      order: z.string().optional(),
+      ...FacetShape,
+      collection: CollectionParam,
+      filters: z.string().optional().describe("Raw numeric filter ids, merged with the facet params above."),
+      type: z.number().int().optional().describe("Raw collection id; prefer `collection`."),
+      sort: z.string().optional().describe("price | rating | rating_q"),
+      order: z.string().optional().describe("asc | desc"),
       page: z.number().int().positive().default(1),
       limit: z.number().int().positive().max(50).default(12),
       first: z.number().int().positive().optional(),
     },
-    handler: (client, args) => client.listCatalog(args),
+    handler: (client, args) => client.listCatalog(applyFacets(args)),
   }),
   defineTool({
     name: "get_product",
@@ -118,6 +174,27 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
       cityId: z.string().optional(),
     },
     handler: (client, { cityId }) => client.getCityDeliverySummary(cityId),
+  }),
+  defineTool({
+    name: "list_discounts",
+    title: "List discounted products",
+    description:
+      "Products currently sold below their regular price, best discount first. "
+      + "The shop API has no discount facet, so this walks the catalog and compares "
+      + "price against the pre-discount price; accepts the same facets as list_catalog.",
+    inputSchema: {
+      category: z.string().default("coffee"),
+      methods: z.string().optional().describe("Brewing method: 1b espresso, 3b filter, 5a capsules, 6a drip bags."),
+      ...FacetShape,
+      collection: CollectionParam,
+      filters: z.string().optional(),
+      minDiscountPercent: z.number().min(1).max(100).default(1),
+      limit: z.number().int().positive().max(50).default(20),
+    },
+    handler: (client, args) => {
+      const { minDiscountPercent, limit, ...query } = args;
+      return client.listDiscountedProducts(applyFacets(query), minDiscountPercent, limit);
+    },
   }),
   defineTool({
     name: "create_cart",
@@ -187,8 +264,10 @@ function typeLabel(schema: unknown): string {
       return "number";
     case "ZodBoolean":
       return "boolean";
-    case "ZodArray":
-      return `${typeLabel(def.type)}[]`;
+    case "ZodArray": {
+      const inner = typeLabel(def.type);
+      return inner.includes(" | ") ? `(${inner})[]` : `${inner}[]`;
+    }
     case "ZodObject":
       return "object";
     case "ZodEnum":

@@ -121,16 +121,20 @@ export class TastyCoffeeClient {
     };
   }
 
-  private async listRecommendationCatalogProducts(): Promise<ReturnType<typeof normalizeProducts>> {
+  /**
+   * The catalog API paginates at a fixed page size and offers no discount facet,
+   * so any whole-catalog question (discounts, recommendations) has to walk the
+   * pages. Capped so a broken `last_page` cannot spin forever.
+   */
+  async crawlCatalog(query: CatalogQuery = {}, maxPages = 20): Promise<ReturnType<typeof normalizeProducts>> {
     const products: ReturnType<typeof normalizeProducts> = [];
-    const pageSize = 12;
+    const pageSize = query.limit ?? 12;
     let page = 1;
     let lastPage = 1;
 
     do {
       const catalog = await this.listCatalog({
-        category: "coffee",
-        methods: "1b",
+        ...query,
         limit: pageSize,
         first: pageSize,
         page,
@@ -143,9 +147,34 @@ export class TastyCoffeeClient {
         : {};
       lastPage = typeof meta.last_page === "number" ? meta.last_page : page;
       page += 1;
-    } while (page <= lastPage && page <= 20);
+    } while (page <= lastPage && page <= maxPages);
 
     return products;
+  }
+
+  async listDiscountedProducts(
+    query: CatalogQuery = {},
+    minDiscountPercent = 1,
+    limit = 20,
+  ): Promise<JsonObject> {
+    const scanned = await this.crawlCatalog(query);
+    const discounted = scanned
+      .filter((product) => (product.discountPercent ?? 0) >= minDiscountPercent)
+      .sort((a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0));
+
+    return {
+      data: discounted.slice(0, limit),
+      meta: {
+        scanned: scanned.length,
+        matched: discounted.length,
+        returned: Math.min(discounted.length, limit),
+        minDiscountPercent,
+      },
+    };
+  }
+
+  private async listRecommendationCatalogProducts(): Promise<ReturnType<typeof normalizeProducts>> {
+    return this.crawlCatalog({ category: "coffee", methods: "1b" });
   }
 
   private async getApi(path: string, query: Record<string, unknown> = {}): Promise<JsonObject> {
