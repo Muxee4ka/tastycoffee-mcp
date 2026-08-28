@@ -121,7 +121,8 @@ function facetIds(facet: Facet, value: string): string {
   const ids = facet.values[value.trim().toLowerCase()];
   if (ids === undefined) {
     throw new Error(
-      `Unknown ${facet.label} value "${value}". Allowed: ${Object.keys(facet.values).join(", ")}.`,
+      `Недопустимое значение фильтра «${facet.label}»: "${value}". `
+      + `Допустимые: ${Object.keys(facet.values).join(", ")}.`,
     );
   }
   return ids;
@@ -156,7 +157,7 @@ export function resolveCollection(name: string): number {
   const id = COLLECTIONS[name.trim().toLowerCase() as CollectionName];
   if (id === undefined) {
     throw new Error(
-      `Unknown collection "${name}". Allowed: ${Object.keys(COLLECTIONS).join(", ")}.`,
+      `Недопустимая подборка "${name}". Допустимые: ${Object.keys(COLLECTIONS).join(", ")}.`,
     );
   }
   return id;

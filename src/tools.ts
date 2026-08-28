@@ -26,18 +26,18 @@ function enumOf(record: Record<string, unknown>) {
  * API wants. `filters` stays available as a raw escape hatch.
  */
 const FacetShape = {
-  acidity: enumOf(ACIDITY).optional().describe("Acidity (Кислотность)."),
-  body: enumOf(BODY).optional().describe("Body (Плотность)."),
-  roast: z.array(enumOf(ROAST)).optional().describe("Roast level (Степень обжарки)."),
-  flavor: z.array(enumOf(FLAVOR)).optional().describe("Flavour profile (Вкус кофе)."),
-  processing: z.array(enumOf(PROCESSING)).optional().describe("Processing method (Способ обработки)."),
-  origin: z.array(enumOf(ORIGIN)).optional().describe("Country of origin (Страна произрастания)."),
-  feature: z.array(enumOf(FEATURE)).optional().describe("Coffee feature (Особенность кофе)."),
+  acidity: enumOf(ACIDITY).optional().describe("Кислотность."),
+  body: enumOf(BODY).optional().describe("Плотность."),
+  roast: z.array(enumOf(ROAST)).optional().describe("Степень обжарки."),
+  flavor: z.array(enumOf(FLAVOR)).optional().describe("Вкус кофе."),
+  processing: z.array(enumOf(PROCESSING)).optional().describe("Способ обработки."),
+  origin: z.array(enumOf(ORIGIN)).optional().describe("Страна произрастания."),
+  feature: z.array(enumOf(FEATURE)).optional().describe("Особенность кофе."),
 };
 
 const CollectionParam = enumOf(COLLECTIONS)
   .optional()
-  .describe("Curated shop collection (подборка), e.g. новинки.");
+  .describe("Подборка магазина, например новинки.");
 
 type FacetArgs = FacetSelection & { collection?: string; filters?: string; type?: number };
 
@@ -84,8 +84,11 @@ function defineTool<S extends z.ZodRawShape>(spec: ToolSpec<S>): ToolSpec<S> {
 export const TOOL_SPECS: ToolSpec<any>[] = [
   defineTool({
     name: "search_products",
-    title: "Search products",
-    description: "Search Tasty Coffee products by text query.",
+    title: "Поиск товаров",
+    description:
+      "Поиск товаров Tasty Coffee по текстовому запросу. Возвращает id, название, ссылку, "
+      + "описание, цену, цену без скидки и процент скидки, рейтинг и число отзывов, способ "
+      + "обработки, кислотность, насыщенность, фото, наличие и опции (помол, объём упаковки).",
     inputSchema: {
       query: z.string().min(1),
       limit: z.number().int().positive().max(50).default(12),
@@ -95,23 +98,25 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "list_catalog",
-    title: "List catalog",
+    title: "Каталог с фильтрами",
     description:
-      "List Tasty Coffee catalog products, filtered by the shop's sidebar facets. "
-      + "Values from one facet are OR-ed, different facets are AND-ed. "
-      + "Use `collection` for the shop's own selections (новинки, популярное, сорт недели). "
-      + "Sorting: sort=price|rating|rating_q with order=asc|desc; there is no sort by date.",
+      "Каталог Tasty Coffee с теми же фильтрами, что в сайдбаре на сайте: кислотность, "
+      + "плотность, степень обжарки, вкус, способ обработки, страна произрастания, особенность. "
+      + "Значения одного фильтра объединяются по «или», разные фильтры — по «и». "
+      + "collection — готовые подборки магазина (новинки, популярное, сорт недели). "
+      + "Сортировка: sort=price|rating|rating_q вместе с order=asc|desc; сортировки по дате нет. "
+      + "Поля товара те же, что у search_products.",
     inputSchema: {
       category: z.string().default("coffee"),
       q: z.string().optional(),
-      methods: z.string().optional().describe("Brewing method: 1b espresso, 3b filter, 5a capsules, 6a drip bags."),
+      methods: z.string().optional().describe("Способ приготовления: 1b эспрессо, 3b фильтр, 5a капсулы, 6a дрип-пакеты."),
       categories: z.string().optional(),
       ...FacetShape,
       collection: CollectionParam,
-      filters: z.string().optional().describe("Raw numeric filter ids, merged with the facet params above."),
-      type: z.number().int().optional().describe("Raw collection id; prefer `collection`."),
-      sort: z.string().optional().describe("price | rating | rating_q"),
-      order: z.string().optional().describe("asc | desc"),
+      filters: z.string().optional().describe("Сырые числовые id фильтров, объединяются с именованными фильтрами выше."),
+      type: z.number().int().optional().describe("Сырой id подборки; лучше использовать collection."),
+      sort: z.string().optional().describe("price — цена, rating — рейтинг, rating_q — оценка Q-грейдера."),
+      order: z.string().optional().describe("asc — по возрастанию, desc — по убыванию."),
       page: z.number().int().positive().default(1),
       limit: z.number().int().positive().max(50).default(12),
       first: z.number().int().positive().optional(),
@@ -120,18 +125,21 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "get_product",
-    title: "Get product",
-    description: "Fetch one product by category and slug.",
+    title: "Карточка товара",
+    description:
+      "Детальная карточка одного товара по категории и слагу: описание, цена и скидка, "
+      + "рейтинг, способ обработки, кислотность, насыщенность, фото и доступные опции "
+      + "помола и объёма упаковки с их id — они нужны для сборки корзины.",
     inputSchema: {
-      slug: z.string().min(1).describe("Product slug, for example black-candy."),
+      slug: z.string().min(1).describe("Слаг товара, например black-candy."),
       category: z.string().default("coffee"),
     },
     handler: (client, { slug, category }) => client.getProduct(slug, category),
   }),
   defineTool({
     name: "get_product_prices",
-    title: "Get product prices",
-    description: "Fetch current prices and option prices for product ids.",
+    title: "Цены товаров",
+    description: "Актуальные цены и цены опций для списка id товаров. Можно передать промокод.",
     inputSchema: {
       productIds: z.array(z.number().int().positive()).min(1).max(50),
       coupon: z.string().optional(),
@@ -140,8 +148,8 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "get_product_reviews",
-    title: "Get product reviews",
-    description: "Fetch product reviews.",
+    title: "Отзывы о товаре",
+    description: "Отзывы о товаре: текст, оценка, дата и автор.",
     inputSchema: {
       productId: z.number().int().positive(),
       page: z.number().int().positive().default(1),
@@ -151,8 +159,10 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "get_catalog_filters",
-    title: "Get catalog filters",
-    description: "Fetch filter groups for a catalog category.",
+    title: "Фильтры каталога",
+    description:
+      "Группы фильтров каталога с актуальными id значений. Нужен, только если требуется "
+      + "фильтр, которого нет среди именованных параметров list_catalog.",
     inputSchema: {
       category: z.string().default("coffee"),
       method: z.string().optional(),
@@ -161,15 +171,17 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "get_home_blocks",
-    title: "Get home blocks",
-    description: "Fetch Tasty Coffee home page product blocks.",
+    title: "Блоки главной страницы",
+    description:
+      "Блоки главной страницы Tasty Coffee: новинки, популярное, наборы, сорт недели, "
+      + "статистика, отзывы и обжарка.",
     inputSchema: {},
     handler: (client) => client.getHomeBlocks(),
   }),
   defineTool({
     name: "get_city_delivery_summary",
-    title: "Get city delivery summary",
-    description: "Fetch current city, popular cities, and delivery service summary.",
+    title: "Город и доставка",
+    description: "Текущий город, список популярных городов и сводка по службам доставки.",
     inputSchema: {
       cityId: z.string().optional(),
     },
@@ -177,14 +189,15 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "list_discounts",
-    title: "List discounted products",
+    title: "Товары со скидкой",
     description:
-      "Products currently sold below their regular price, best discount first. "
-      + "The shop API has no discount facet, so this walks the catalog and compares "
-      + "price against the pre-discount price; accepts the same facets as list_catalog.",
+      "Товары, которые сейчас продаются дешевле обычной цены, начиная с самой большой скидки. "
+      + "В API магазина нет фильтра по акциям, поэтому тул обходит каталог и сравнивает цену "
+      + "с ценой без скидки. Принимает те же фильтры, что list_catalog. "
+      + "В meta возвращает, сколько товаров просмотрено и сколько подошло.",
     inputSchema: {
       category: z.string().default("coffee"),
-      methods: z.string().optional().describe("Brewing method: 1b espresso, 3b filter, 5a capsules, 6a drip bags."),
+      methods: z.string().optional().describe("Способ приготовления: 1b эспрессо, 3b фильтр, 5a капсулы, 6a дрип-пакеты."),
       ...FacetShape,
       collection: CollectionParam,
       filters: z.string().optional(),
@@ -198,8 +211,10 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "create_cart",
-    title: "Create cart quote",
-    description: "Create an anonymous cart quote from items without checking out.",
+    title: "Расчёт корзины",
+    description:
+      "Собирает анонимную корзину из списка позиций и возвращает расчёт со стоимостью. "
+      + "Заказ не оформляется. optionValueIds — id опций из карточки товара (помол, объём).",
     inputSchema: {
       items: z.array(CartItemSchema).min(1),
       couponCode: z.string().optional(),
@@ -209,8 +224,10 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "create_cart_share_link",
-    title: "Create cart share link",
-    description: "Create an anonymous shared basket URL without checking out.",
+    title: "Ссылка на корзину",
+    description:
+      "Собирает анонимную корзину и возвращает ссылку на неё — её можно отдать пользователю, "
+      + "чтобы он открыл готовую корзину на сайте. Заказ не оформляется.",
     inputSchema: {
       items: z.array(CartItemSchema).min(1),
       couponCode: z.string().optional(),
@@ -220,9 +237,11 @@ export const TOOL_SPECS: ToolSpec<any>[] = [
   }),
   defineTool({
     name: "recommend_cart",
-    title: "Recommend cart",
+    title: "Готовая подборка кофе",
     description:
-      "Recommend high-rated 250g espresso coffees for milk drinks and black coffee, then create an anonymous shared basket URL.",
+      "Подбирает кофе для эспрессо-машины с высоким рейтингом: отдельно под молочные напитки "
+      + "и под чёрный кофе, в указанной фасовке (по умолчанию 250 г), и сразу собирает из них "
+      + "анонимную корзину со ссылкой.",
     inputSchema: {
       minRating: z.number().min(0).max(5).default(4.9),
       milkCount: z.number().int().min(0).max(10).default(3),

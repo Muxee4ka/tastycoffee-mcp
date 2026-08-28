@@ -45,8 +45,8 @@ export function createServer(): McpServer {
     "settings",
     "tastycoffee://settings",
     {
-      title: "Tasty Coffee settings",
-      description: "Public Tasty Coffee shop settings.",
+      title: "Настройки Tasty Coffee",
+      description: "Публичные настройки магазина Tasty Coffee.",
       mimeType: "application/json",
     },
     async (uri) => ({

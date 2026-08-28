@@ -31,7 +31,7 @@ describe("resolveFilterIds", () => {
 
   it("names the allowed values when given an unknown one", () => {
     expect(() => resolveFilterIds({ roast: ["очень тёмная"] }))
-      .toThrow(/Степень обжарки.*светлая, средняя, тёмная/s);
+      .toThrow(/Степень обжарки.*Допустимые: светлая, средняя, тёмная/s);
   });
 });
 
@@ -41,7 +41,7 @@ describe("resolveCollection", () => {
   });
 
   it("names the allowed collections when given an unknown one", () => {
-    expect(() => resolveCollection("акции")).toThrow(/Allowed: рекомендуем/);
+    expect(() => resolveCollection("акции")).toThrow(/Допустимые: рекомендуем/);
   });
 });
 
